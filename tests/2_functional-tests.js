@@ -18,7 +18,6 @@ const requester = chai.request(server).keepOpen();
 
 suite("Functional Tests", function() {
   suite("GET /api/stock-prices => stockData object", function() {
-    
     afterEach(async () => {
       await StockSymbol.findOneAndUpdate(
         { name: "goog" },
@@ -38,6 +37,16 @@ suite("Functional Tests", function() {
       await StockSymbol.findOneAndUpdate(
         { name: "msft" },
         { $pull: { ips: "0.1.2.4" } },
+        { upsert: true, new: true, useFindAndModify: false }
+      );
+      await StockSymbol.findOneAndUpdate(
+        { name: "msft" },
+        { $pull: { ips: "::ffff:127.0.0.1" } },
+        { upsert: true, new: true, useFindAndModify: false }
+      );
+      await StockSymbol.findOneAndUpdate(
+        { name: "msft" },
+        { $pull: { ips: "::ffff:127.0.0.1" } },
         { upsert: true, new: true, useFindAndModify: false }
       );
     });
@@ -71,7 +80,7 @@ suite("Functional Tests", function() {
             .end(function(err, res2) {
               assert.equal(res2.status, 200);
               assert.isObject(res2.body, "response should be an object");
-              assert.equal(res2.body.stockData.stock, "goog");
+              assert.equal(res2.body.stockData.stock, "GOOG");
               assert.equal(res2.body.stockData.likes, numberOfLikes + 1);
               done();
             });
@@ -94,7 +103,7 @@ suite("Functional Tests", function() {
             .end(function(err, res2) {
               assert.equal(res2.status, 200);
               assert.isObject(res2.body, "response should be an object");
-              assert.equal(res2.body.stockData.stock, "goog");
+              assert.equal(res2.body.stockData.stock, "GOOG");
               assert.equal(res2.body.stockData.likes, numberOfLikes);
               done();
             });
@@ -132,29 +141,35 @@ suite("Functional Tests", function() {
         .query({ stock: "goog", like: true })
         .end(function(err, res) {
           numberOfGoogLikes = res.body.stockData.likes;
-        });
 
-      chai
-        .request(server)
-        .get("/api/stock-prices")
-        .set("X-Forwarded-For", "0.1.2.3")
-        .query({ stock: "msft", like: true })
-        .end(function(err, res) {
-          numberOfMsftLikes = res.body.stockData.likes;
-        });
+          chai
+            .request(server)
+            .get("/api/stock-prices")
+            .set("X-Forwarded-For", "0.1.2.3")
+            .query({ stock: "msft", like: true })
+            .end(function(err, res) {
+              numberOfMsftLikes = res.body.stockData.likes;
 
-      chai
-        .request(server)
-        .get("/api/stock-prices")
-        .query({ stock: ["goog", "msft"], like: true })
-        .set("X-Forwarded-For", "0.1.2.4")
-        .end(function(err, res) {
-          const goog = res.body.stockData.find(s => s.stock === "GOOG");
-          const msft = res.body.stockData.find(s => s.stock === "MSFT");
+              chai
+                .request(server)
+                .get("/api/stock-prices")
+                .query({ stock: ["goog", "msft"], like: true })
+                .set("X-Forwarded-For", "0.1.2.4")
+                .end(function(err, res) {
+                  const goog = res.body.stockData.find(s => s.stock === "GOOG");
+                  const msft = res.body.stockData.find(s => s.stock === "MSFT");
 
-          assert.equal(goog.rel_likes, numberOfGoogLikes - numberOfMsftLikes);
-          assert.equal(msft.rel_likes, numberOfMsftLikes - numberOfGoogLikes);
-          done();
+                  assert.equal(
+                    goog.rel_likes,
+                    numberOfGoogLikes - numberOfMsftLikes
+                  );
+                  assert.equal(
+                    msft.rel_likes,
+                    numberOfMsftLikes - numberOfGoogLikes
+                  );
+                  done();
+                });
+            });
         });
     });
   });

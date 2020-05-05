@@ -18,7 +18,7 @@ module.exports = function(app) {
     const stock = req.query.stock;
     const like = req.query.like;
     const ip = req.clientIp;
-
+    
     stockPrices
       .getStockData(stock, ip, like)
       .then(data => res.status(200).json(data))
